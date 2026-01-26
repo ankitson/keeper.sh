@@ -10,6 +10,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { parseIcsEvents } from "./parse-ics-events";
 import { diffEvents } from "./diff-events";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
+import type { EventTimeSlot } from "../types";
 
 const FIRST_SNAPSHOT_INDEX = 1;
 const MINIMUM_EVENTS_TO_PROCESS = 0;
@@ -83,13 +84,34 @@ const removeEvents = async (
 const addEvents = async (
   database: BunSQLDatabase,
   sourceId: string,
-  events: { uid: string; startTime: Date; endTime: Date }[],
+  events: EventTimeSlot[],
 ): Promise<void> => {
   const rows = events.map((event) => ({
     endTime: event.endTime,
     sourceEventUid: event.uid,
     sourceId,
     startTime: event.startTime,
+    // Tier 1 - Core Content
+    summary: event.summary,
+    description: event.description,
+    location: event.location,
+    url: event.url,
+    status: event.status,
+    categories: event.categories ? JSON.stringify(event.categories) : null,
+    eventClass: event.class,
+    priority: event.priority,
+    comment: event.comment,
+    geo: event.geo,
+    // Tier 2 - Recurrence (JSON)
+    recurrenceRule: event.recurrenceRule ? JSON.stringify(event.recurrenceRule) : null,
+    exceptionDates: event.exceptionDates ? JSON.stringify(event.exceptionDates) : null,
+    recurrenceId: event.recurrenceId ? JSON.stringify(event.recurrenceId) : null,
+    // Tier 3 - People (JSON)
+    organizer: event.organizer ? JSON.stringify(event.organizer) : null,
+    attendees: event.attendees ? JSON.stringify(event.attendees) : null,
+    // Other
+    timeTransparent: event.timeTransparent,
+    attach: event.attach,
   }));
 
   await database.insert(eventStatesTable).values(rows);

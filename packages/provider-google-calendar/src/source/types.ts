@@ -20,16 +20,36 @@ interface GoogleEventDateTime {
   timeZone?: string;
 }
 
+interface GoogleAttendee {
+  email?: string;
+  displayName?: string;
+  responseStatus?: "needsAction" | "declined" | "tentative" | "accepted";
+  optional?: boolean;
+  organizer?: boolean;
+}
+
 interface GoogleCalendarEvent {
   id: string;
   iCalUID?: string;
   status: "confirmed" | "tentative" | "cancelled";
   summary?: string;
+  description?: string;
+  location?: string;
   start: GoogleEventDateTime;
   end: GoogleEventDateTime;
   created?: string;
   updated?: string;
   eventType?: "default" | "focusTime" | "workingLocation" | "outOfOffice";
+  visibility?: "default" | "public" | "private" | "confidential";
+  transparency?: "opaque" | "transparent";
+  recurrence?: string[];
+  recurringEventId?: string;
+  attendees?: GoogleAttendee[];
+  organizer?: {
+    email?: string;
+    displayName?: string;
+    self?: boolean;
+  };
 }
 
 interface GoogleEventsListResponse {
@@ -60,6 +80,15 @@ interface EventTimeSlot {
   uid: string;
   startTime: Date;
   endTime: Date;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  eventClass?: string;
+  timeTransparent?: string;
+  recurrenceRule?: object;
+  organizer?: object;
+  attendees?: object[];
 }
 
 export type {
@@ -68,6 +97,7 @@ export type {
   GoogleEventDateTime,
   GoogleCalendarEvent,
   GoogleEventsListResponse,
+  GoogleAttendee,
   FetchEventsOptions,
   FetchEventsResult,
   EventTimeSlot,

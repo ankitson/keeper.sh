@@ -86,13 +86,34 @@ const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarServic
 
   const addEvents = async (
     sourceId: string,
-    events: { uid: string; startTime: Date; endTime: Date }[],
+    events: import("@keeper.sh/calendar").EventTimeSlot[],
   ): Promise<void> => {
     const rows = events.map((event) => ({
       endTime: event.endTime,
       sourceEventUid: event.uid,
       sourceId,
       startTime: event.startTime,
+      // Tier 1 - Core Content
+      summary: event.summary,
+      description: event.description,
+      location: event.location,
+      url: event.url,
+      status: event.status,
+      categories: event.categories ? JSON.stringify(event.categories) : null,
+      eventClass: event.class,
+      priority: event.priority,
+      comment: event.comment,
+      geo: event.geo,
+      // Tier 2 - Recurrence (JSON)
+      recurrenceRule: event.recurrenceRule ? JSON.stringify(event.recurrenceRule) : null,
+      exceptionDates: event.exceptionDates ? JSON.stringify(event.exceptionDates) : null,
+      recurrenceId: event.recurrenceId ? JSON.stringify(event.recurrenceId) : null,
+      // Tier 3 - People (JSON)
+      organizer: event.organizer ? JSON.stringify(event.organizer) : null,
+      attendees: event.attendees ? JSON.stringify(event.attendees) : null,
+      // Other
+      timeTransparent: event.timeTransparent,
+      attach: event.attach,
     }));
 
     await database.insert(eventStatesTable).values(rows);

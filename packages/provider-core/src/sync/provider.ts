@@ -206,9 +206,16 @@ abstract class CalendarProvider<TConfig extends ProviderConfig = ProviderConfig>
   ): SyncOperation[] {
     const operations: SyncOperation[] = [];
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     for (const mapping of existingMappings) {
       if (!localEventIds.has(mapping.eventStateId)) {
+        // Don't remove past events from destination - they should stay on the calendar
+        // Past events are not in localEventIds because fetchEventsForSources filters by startTime >= today
+        // We only want to remove future events that were explicitly deleted from the source
+        if (mapping.startTime < startOfToday) {
+          continue;
+        }
         operations.push({
           deleteId: mapping.deleteIdentifier,
           startTime: mapping.startTime,
@@ -294,6 +301,10 @@ abstract class CalendarProvider<TConfig extends ProviderConfig = ProviderConfig>
             "push.error": result?.error,
             "push.remote_id": result?.remoteId,
             "push.success": result?.success,
+            "push.failed_event.id": operation.event.id,
+            "push.failed_event.summary": operation.event.summary,
+            "push.failed_event.start": operation.event.startTime.toISOString(),
+            "push.failed_event.end": operation.event.endTime.toISOString(),
           });
           addFailed++;
         }

@@ -44,6 +44,25 @@ interface SyncableEvent {
   sourceId: string;
   sourceName: string | null;
   sourceUrl: string | null;
+  // Tier 1 - Core Content
+  location?: string;
+  url?: string;
+  status?: string;
+  categories?: string[];
+  eventClass?: string;
+  priority?: string;
+  comment?: string;
+  geo?: string;
+  // Tier 2 - Recurrence
+  recurrenceRule?: object;
+  exceptionDates?: object;
+  recurrenceId?: object;
+  // Tier 3 - People
+  organizer?: object;
+  attendees?: object[];
+  // Other
+  timeTransparent?: string;
+  attach?: string;
 }
 
 interface PushResult {

@@ -141,6 +141,15 @@ class GoogleCalendarSourceProvider extends OAuthSourceProvider<GoogleSourceConfi
             sourceEventUid: event.uid,
             sourceId,
             startTime: event.startTime,
+            summary: event.summary,
+            description: event.description,
+            location: event.location,
+            status: event.status,
+            eventClass: event.eventClass,
+            timeTransparent: event.timeTransparent,
+            recurrenceRule: event.recurrenceRule ? JSON.stringify(event.recurrenceRule) : null,
+            organizer: event.organizer ? JSON.stringify(event.organizer) : null,
+            attendees: event.attendees ? JSON.stringify(event.attendees) : null,
           })),
         );
     }

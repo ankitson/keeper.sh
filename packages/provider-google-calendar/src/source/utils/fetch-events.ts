@@ -184,6 +184,77 @@ const shouldExcludeEvent = (
   return false;
 };
 
+const mapGoogleVisibilityToClass = (visibility: GoogleCalendarEvent["visibility"]): string | undefined => {
+  if (!visibility || visibility === "default") return undefined;
+  const map: Record<string, string> = {
+    public: "PUBLIC",
+    private: "PRIVATE",
+    confidential: "CONFIDENTIAL",
+  };
+  return map[visibility];
+};
+
+const mapGoogleTransparency = (transparency: GoogleCalendarEvent["transparency"]): string | undefined => {
+  if (!transparency) return undefined;
+  return transparency === "transparent" ? "TRANSPARENT" : "OPAQUE";
+};
+
+const parseGoogleRecurrence = (recurrence: string[] | undefined): object | undefined => {
+  if (!recurrence || recurrence.length === 0) return undefined;
+  // Google returns RFC5545 recurrence strings like ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"]
+  // We store the first RRULE as an object
+  for (const rule of recurrence) {
+    if (rule.startsWith("RRULE:")) {
+      const rrulePart = rule.substring(6);
+      const parts = rrulePart.split(";");
+      const result: Record<string, unknown> = {};
+      for (const part of parts) {
+        const [key, value] = part.split("=");
+        if (key && value) {
+          if (key === "BYDAY" || key === "BYMONTH" || key === "BYMONTHDAY") {
+            result[key.toLowerCase()] = value.split(",");
+          } else if (key === "COUNT" || key === "INTERVAL") {
+            result[key.toLowerCase()] = parseInt(value, 10);
+          } else {
+            result[key.toLowerCase()] = value;
+          }
+        }
+      }
+      return result;
+    }
+  }
+  return undefined;
+};
+
+const mapGoogleOrganizer = (organizer: GoogleCalendarEvent["organizer"]): object | undefined => {
+  if (!organizer) return undefined;
+  return {
+    email: organizer.email,
+    cn: organizer.displayName,
+  };
+};
+
+const mapGoogleAttendees = (attendees: GoogleCalendarEvent["attendees"]): object[] | undefined => {
+  if (!attendees || attendees.length === 0) return undefined;
+  return attendees.map((a) => ({
+    email: a.email,
+    cn: a.displayName,
+    partstat: mapGoogleResponseStatus(a.responseStatus),
+    role: a.optional ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT",
+  }));
+};
+
+const mapGoogleResponseStatus = (status: string | undefined): string => {
+  if (!status) return "NEEDS-ACTION";
+  const map: Record<string, string> = {
+    accepted: "ACCEPTED",
+    declined: "DECLINED",
+    tentative: "TENTATIVE",
+    needsAction: "NEEDS-ACTION",
+  };
+  return map[status] ?? "NEEDS-ACTION";
+};
+
 const parseGoogleEvents = (
   events: GoogleCalendarEvent[],
   filters?: EventTypeFilters,
@@ -201,9 +272,18 @@ const parseGoogleEvents = (
       continue;
     }
     result.push({
-      endTime: parseEventDateTime(event.end),
-      startTime: parseEventDateTime(event.start),
       uid: event.iCalUID,
+      startTime: parseEventDateTime(event.start),
+      endTime: parseEventDateTime(event.end),
+      summary: event.summary,
+      description: event.description,
+      location: event.location,
+      status: event.status?.toUpperCase(),
+      eventClass: mapGoogleVisibilityToClass(event.visibility),
+      timeTransparent: mapGoogleTransparency(event.transparency),
+      recurrenceRule: parseGoogleRecurrence(event.recurrence),
+      organizer: mapGoogleOrganizer(event.organizer),
+      attendees: mapGoogleAttendees(event.attendees),
     });
   }
 

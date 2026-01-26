@@ -43,6 +43,11 @@ const getEventEndTime = (event: IcsEvent, startTime: Date): Date => {
 const isKeeperEvent = (uid: string | undefined): boolean =>
   uid?.endsWith(KEEPER_EVENT_SUFFIX) ?? false;
 
+const formatGeo = (geo: IcsEvent["geo"]): string | undefined => {
+  if (!geo) return undefined;
+  return `${geo.lat},${geo.lon}`;
+};
+
 const parseIcsEvents = (calendar: IcsCalendar): EventTimeSlot[] => {
   const result: EventTimeSlot[] = [];
 
@@ -56,9 +61,30 @@ const parseIcsEvents = (calendar: IcsCalendar): EventTimeSlot[] => {
 
     const startTime = event.start.date;
     result.push({
-      endTime: getEventEndTime(event, startTime),
-      startTime,
       uid: event.uid,
+      startTime,
+      endTime: getEventEndTime(event, startTime),
+      // Tier 1 - Core Content
+      summary: event.summary,
+      description: event.description,
+      location: event.location,
+      url: event.url,
+      status: event.status,
+      categories: event.categories,
+      class: event.class,
+      priority: event.priority,
+      comment: event.comment,
+      geo: formatGeo(event.geo),
+      // Tier 2 - Recurrence
+      recurrenceRule: event.recurrenceRule,
+      exceptionDates: event.exceptionDates,
+      recurrenceId: event.recurrenceId,
+      // Tier 3 - People
+      organizer: event.organizer,
+      attendees: event.attendees,
+      // Other
+      timeTransparent: event.timeTransparent,
+      attach: event.attach,
     });
   }
 

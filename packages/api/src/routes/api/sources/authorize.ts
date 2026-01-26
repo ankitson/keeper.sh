@@ -51,6 +51,10 @@ const GET = withWideEvent(
     };
     const authUrl = getAuthorizationUrl(provider, userId, authorizationOptions);
 
+    console.log("[OAuth Debug] baseUrl:", baseUrl);
+    console.log("[OAuth Debug] callbackUrl:", callbackUrl.toString());
+    console.log("[OAuth Debug] authUrl:", authUrl);
+
     return Response.redirect(authUrl);
   }),
 );

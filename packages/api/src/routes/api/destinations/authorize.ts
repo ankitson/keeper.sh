@@ -69,6 +69,10 @@ const GET = withWideEvent(
     };
     const authUrl = getAuthorizationUrl(provider, userId, authorizationOptions);
 
+    console.log("[OAuth Debug - Destinations] baseUrl:", baseUrl);
+    console.log("[OAuth Debug - Destinations] callbackUrl:", callbackUrl.toString());
+    console.log("[OAuth Debug - Destinations] authUrl:", authUrl);
+
     return Response.redirect(authUrl);
   }),
 );

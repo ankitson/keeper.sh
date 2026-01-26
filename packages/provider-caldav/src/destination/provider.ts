@@ -119,7 +119,18 @@ class CalDAVProviderInstance extends CalendarProvider<CalDAVConfig> {
         this.rateLimiter.execute(async (): Promise<PushResult> => {
           try {
             const uid = generateEventUid();
+
+            // Log the event being processed for debugging
+            console.log("[CalDAV] Pushing event:", {
+              id: event.id,
+              summary: event.summary,
+              startTime: event.startTime.toISOString(),
+              endTime: event.endTime.toISOString(),
+              recurrenceRule: event.recurrenceRule,
+            });
+
             const iCalString = eventToICalString(event, uid);
+            console.log("[CalDAV] Generated ICS:", iCalString);
 
             await this.client.createCalendarObject({
               calendarUrl: this.config.calendarUrl,
@@ -129,6 +140,11 @@ class CalDAVProviderInstance extends CalendarProvider<CalDAVConfig> {
 
             return { remoteId: uid, success: true };
           } catch (error) {
+            console.log("[CalDAV] Error pushing event:", {
+              id: event.id,
+              summary: event.summary,
+              error: getErrorMessage(error),
+            });
             WideEvent.error(error);
             return { error: getErrorMessage(error), success: false };
           }

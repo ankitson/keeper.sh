@@ -45,7 +45,11 @@ const buildInitialUrl = (calendarId: string, timeMin: Date, timeMax: Date): URL 
 
   url.searchParams.set("startDateTime", timeMin.toISOString());
   url.searchParams.set("endDateTime", timeMax.toISOString());
-  url.searchParams.set("$select", "id,iCalUId,subject,start,end");
+  // Request more fields for full event details
+  url.searchParams.set(
+    "$select",
+    "id,iCalUId,subject,bodyPreview,location,start,end,showAs,sensitivity,importance,recurrence,organizer,attendees",
+  );
 
   return url;
 };
@@ -170,6 +174,108 @@ const fetchCalendarEvents = async (options: FetchEventsOptions): Promise<FetchEv
   return result;
 };
 
+const mapOutlookSensitivityToClass = (sensitivity: OutlookCalendarEvent["sensitivity"]): string | undefined => {
+  if (!sensitivity || sensitivity === "normal") return undefined;
+  const map: Record<string, string> = {
+    personal: "PRIVATE",
+    private: "PRIVATE",
+    confidential: "CONFIDENTIAL",
+  };
+  return map[sensitivity];
+};
+
+const mapOutlookShowAsToTransparency = (showAs: OutlookCalendarEvent["showAs"]): string | undefined => {
+  if (!showAs) return undefined;
+  return showAs === "free" ? "TRANSPARENT" : "OPAQUE";
+};
+
+const mapOutlookImportanceToPriority = (importance: OutlookCalendarEvent["importance"]): string | undefined => {
+  if (!importance) return undefined;
+  const map: Record<string, string> = {
+    low: "9",
+    normal: "5",
+    high: "1",
+  };
+  return map[importance];
+};
+
+const parseOutlookRecurrence = (recurrence: OutlookCalendarEvent["recurrence"]): object | undefined => {
+  if (!recurrence || !recurrence.pattern) return undefined;
+  const result: Record<string, unknown> = {};
+
+  // Map type to freq
+  if (recurrence.pattern.type) {
+    const typeMap: Record<string, string> = {
+      daily: "DAILY",
+      weekly: "WEEKLY",
+      absoluteMonthly: "MONTHLY",
+      relativeMonthly: "MONTHLY",
+      absoluteYearly: "YEARLY",
+      relativeYearly: "YEARLY",
+    };
+    result.freq = typeMap[recurrence.pattern.type] ?? recurrence.pattern.type.toUpperCase();
+  }
+
+  if (recurrence.pattern.interval) {
+    result.interval = recurrence.pattern.interval;
+  }
+
+  if (recurrence.pattern.daysOfWeek && recurrence.pattern.daysOfWeek.length > 0) {
+    const dayMap: Record<string, string> = {
+      sunday: "SU",
+      monday: "MO",
+      tuesday: "TU",
+      wednesday: "WE",
+      thursday: "TH",
+      friday: "FR",
+      saturday: "SA",
+    };
+    result.byday = recurrence.pattern.daysOfWeek.map((day) => dayMap[day.toLowerCase()] ?? day.toUpperCase());
+  }
+
+  if (recurrence.range) {
+    if (recurrence.range.numberOfOccurrences) {
+      result.count = recurrence.range.numberOfOccurrences;
+    }
+    if (recurrence.range.endDate) {
+      result.until = recurrence.range.endDate;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+};
+
+const mapOutlookOrganizer = (organizer: OutlookCalendarEvent["organizer"]): object | undefined => {
+  if (!organizer?.emailAddress) return undefined;
+  return {
+    email: organizer.emailAddress.address,
+    cn: organizer.emailAddress.name,
+  };
+};
+
+const mapOutlookAttendees = (attendees: OutlookCalendarEvent["attendees"]): object[] | undefined => {
+  if (!attendees || attendees.length === 0) return undefined;
+  return attendees.map((a) => ({
+    email: a.emailAddress?.address,
+    cn: a.emailAddress?.name,
+    partstat: mapOutlookResponseStatus(a.status?.response),
+    role: a.type === "optional" ? "OPT-PARTICIPANT" : "REQ-PARTICIPANT",
+  }));
+};
+
+const mapOutlookResponseStatus = (status: string | undefined): string => {
+  if (!status) return "NEEDS-ACTION";
+  const map: Record<string, string> = {
+    accepted: "ACCEPTED",
+    declined: "DECLINED",
+    tentativelyAccepted: "TENTATIVE",
+    none: "NEEDS-ACTION",
+    notResponded: "NEEDS-ACTION",
+    organizer: "ACCEPTED",
+  };
+  return map[status] ?? "NEEDS-ACTION";
+};
+
 const parseOutlookEvents = (events: OutlookCalendarEvent[]): EventTimeSlot[] => {
   const result: EventTimeSlot[] = [];
 
@@ -181,9 +287,18 @@ const parseOutlookEvents = (events: OutlookCalendarEvent[]): EventTimeSlot[] => 
       continue;
     }
     result.push({
-      endTime: parseEventDateTime(event.end),
-      startTime: parseEventDateTime(event.start),
       uid: event.iCalUId,
+      startTime: parseEventDateTime(event.start),
+      endTime: parseEventDateTime(event.end),
+      summary: event.subject,
+      description: event.bodyPreview,
+      location: event.location?.displayName,
+      eventClass: mapOutlookSensitivityToClass(event.sensitivity),
+      priority: mapOutlookImportanceToPriority(event.importance),
+      timeTransparent: mapOutlookShowAsToTransparency(event.showAs),
+      recurrenceRule: parseOutlookRecurrence(event.recurrence),
+      organizer: mapOutlookOrganizer(event.organizer),
+      attendees: mapOutlookAttendees(event.attendees),
     });
   }
 

@@ -132,6 +132,27 @@ const eventStatesTable = pgTable(
       .notNull()
       .references(() => calendarSourcesTable.id, { onDelete: "cascade" }),
     startTime: timestamp().notNull(),
+    // Tier 1 - Core Content
+    summary: text(),
+    description: text(),
+    location: text(),
+    url: text(),
+    status: text(),
+    categories: text(), // JSON array
+    eventClass: text(), // 'class' is reserved
+    priority: text(),
+    comment: text(),
+    geo: text(),
+    // Tier 2 - Recurrence (JSON)
+    recurrenceRule: text(),
+    exceptionDates: text(),
+    recurrenceId: text(),
+    // Tier 3 - People (JSON)
+    organizer: text(),
+    attendees: text(),
+    // Other
+    timeTransparent: text(),
+    attach: text(),
   },
   (table) => [
     index("event_states_start_time_idx").on(table.startTime),

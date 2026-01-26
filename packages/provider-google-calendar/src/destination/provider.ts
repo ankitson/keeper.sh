@@ -175,6 +175,11 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
       `calendars/${encodeURIComponent(this.config.calendarId)}/events`,
       GOOGLE_CALENDAR_API,
     );
+    // Prevent Google from sending invite emails to attendees
+    url.searchParams.set("sendUpdates", "none");
+
+    // Log the request payload for debugging
+    console.log("[Google Calendar] Creating event:", JSON.stringify(resource, null, 2));
 
     const response = await fetch(url, {
       body: JSON.stringify(resource),
@@ -184,6 +189,7 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
 
     if (!response.ok) {
       const body = await response.json();
+      console.log("[Google Calendar] Error response:", JSON.stringify(body, null, 2));
       const { error } = googleApiErrorSchema.assert(body);
 
       const errorMessage = error?.message ?? response.statusText;
@@ -211,6 +217,8 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
         `calendars/${encodeURIComponent(this.config.calendarId)}/events/${encodeURIComponent(existing.id)}`,
         GOOGLE_CALENDAR_API,
       );
+      // Prevent Google from sending cancellation emails to attendees
+      url.searchParams.set("sendUpdates", "none");
 
       const response = await fetch(url, {
         headers: this.headers,
@@ -266,13 +274,74 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
   }
 
   private static toGoogleEvent(event: SyncableEvent, uid: string): GoogleEvent {
-    return {
-      description: event.description,
-      end: { dateTime: event.endTime.toISOString() },
+    const googleEvent: GoogleEvent = {
       iCalUID: uid,
       start: { dateTime: event.startTime.toISOString() },
+      end: { dateTime: event.endTime.toISOString() },
       summary: event.summary,
+      description: event.description,
+      location: event.location,
     };
+
+    // Map status (Google uses lowercase)
+    if (event.status) {
+      const statusMap: Record<string, string> = {
+        CONFIRMED: "confirmed",
+        TENTATIVE: "tentative",
+        CANCELLED: "cancelled",
+      };
+      googleEvent.status = statusMap[event.status.toUpperCase()] ?? event.status.toLowerCase();
+    }
+
+    // Map visibility (Google uses visibility instead of class)
+    if (event.eventClass) {
+      const classMap: Record<string, string> = {
+        PUBLIC: "public",
+        PRIVATE: "private",
+        CONFIDENTIAL: "confidential",
+      };
+      googleEvent.visibility = classMap[event.eventClass.toUpperCase()] ?? "default";
+    }
+
+    // Map attendees (if present)
+    if (event.attendees && Array.isArray(event.attendees)) {
+      googleEvent.attendees = event.attendees.map((attendee: unknown) => {
+        const a = attendee as { email?: string; cn?: string; partstat?: string; role?: string };
+        return {
+          email: a.email ?? "",
+          displayName: a.cn,
+          responseStatus: GoogleCalendarProviderInstance.mapAttendeeStatus(a.partstat),
+          optional: a.role === "OPT-PARTICIPANT",
+        };
+      });
+    }
+
+    // Map recurrence (if present - Google uses RFC5545 RRULE strings)
+    if (event.recurrenceRule) {
+      const rule = event.recurrenceRule as { freq?: string; until?: string; count?: number; interval?: number; byday?: string[] };
+      const parts: string[] = [];
+      if (rule.freq) parts.push(`FREQ=${rule.freq}`);
+      if (rule.interval) parts.push(`INTERVAL=${rule.interval}`);
+      if (rule.count) parts.push(`COUNT=${rule.count}`);
+      if (rule.until) parts.push(`UNTIL=${rule.until}`);
+      if (rule.byday) parts.push(`BYDAY=${rule.byday.join(",")}`);
+      if (parts.length > 0) {
+        googleEvent.recurrence = [`RRULE:${parts.join(";")}`];
+      }
+    }
+
+    return googleEvent;
+  }
+
+  private static mapAttendeeStatus(partstat: string | undefined): string {
+    if (!partstat) return "needsAction";
+    const statusMap: Record<string, string> = {
+      ACCEPTED: "accepted",
+      DECLINED: "declined",
+      TENTATIVE: "tentative",
+      "NEEDS-ACTION": "needsAction",
+    };
+    return statusMap[partstat.toUpperCase()] ?? "needsAction";
   }
 }
 

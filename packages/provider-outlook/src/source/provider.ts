@@ -133,6 +133,15 @@ class OutlookSourceProvider extends OAuthSourceProvider<OutlookSourceConfig> {
             sourceEventUid: event.uid,
             sourceId,
             startTime: event.startTime,
+            summary: event.summary,
+            description: event.description,
+            location: event.location,
+            eventClass: event.eventClass,
+            priority: event.priority,
+            timeTransparent: event.timeTransparent,
+            recurrenceRule: event.recurrenceRule ? JSON.stringify(event.recurrenceRule) : null,
+            organizer: event.organizer ? JSON.stringify(event.organizer) : null,
+            attendees: event.attendees ? JSON.stringify(event.attendees) : null,
           })),
         );
     }

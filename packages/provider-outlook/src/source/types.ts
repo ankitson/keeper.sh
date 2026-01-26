@@ -24,14 +24,59 @@ interface OutlookRemovedInfo {
   reason: "deleted" | "changed";
 }
 
+interface OutlookAttendee {
+  emailAddress?: {
+    address?: string;
+    name?: string;
+  };
+  status?: {
+    response?: "none" | "organizer" | "tentativelyAccepted" | "accepted" | "declined" | "notResponded";
+  };
+  type?: "required" | "optional" | "resource";
+}
+
 interface OutlookCalendarEvent {
   id: string;
   iCalUId?: string;
   subject?: string;
+  bodyPreview?: string;
+  body?: {
+    contentType?: "text" | "html";
+    content?: string;
+  };
+  location?: {
+    displayName?: string;
+    address?: object;
+  };
   start: OutlookEventDateTime;
   end: OutlookEventDateTime;
   createdDateTime?: string;
   lastModifiedDateTime?: string;
+  showAs?: "free" | "tentative" | "busy" | "oof" | "workingElsewhere" | "unknown";
+  sensitivity?: "normal" | "personal" | "private" | "confidential";
+  importance?: "low" | "normal" | "high";
+  isAllDay?: boolean;
+  recurrence?: {
+    pattern?: {
+      type?: string;
+      interval?: number;
+      daysOfWeek?: string[];
+      firstDayOfWeek?: string;
+    };
+    range?: {
+      type?: string;
+      startDate?: string;
+      endDate?: string;
+      numberOfOccurrences?: number;
+    };
+  };
+  organizer?: {
+    emailAddress?: {
+      address?: string;
+      name?: string;
+    };
+  };
+  attendees?: OutlookAttendee[];
   "@removed"?: OutlookRemovedInfo;
 }
 
@@ -61,6 +106,16 @@ interface EventTimeSlot {
   uid: string;
   startTime: Date;
   endTime: Date;
+  summary?: string;
+  description?: string;
+  location?: string;
+  status?: string;
+  eventClass?: string;
+  priority?: string;
+  timeTransparent?: string;
+  recurrenceRule?: object;
+  organizer?: object;
+  attendees?: object[];
 }
 
 export type {
@@ -69,6 +124,7 @@ export type {
   OutlookEventDateTime,
   OutlookCalendarEvent,
   OutlookEventsListResponse,
+  OutlookAttendee,
   FetchEventsOptions,
   FetchEventsResult,
   EventTimeSlot,
