@@ -17,6 +17,7 @@
     "ts-ics": "2.4.0"
   },
   "devDependencies": {
+    "@keeper.sh/provider-core": "workspace:*",
     "@keeper.sh/typescript-config": "workspace:*",
     "@types/bun": "latest",
     "typescript": "5.9.3"

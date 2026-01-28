@@ -4,11 +4,49 @@ import {
   sourceDestinationMappingsTable,
 } from "@keeper.sh/database/schema";
 import { getStartOfToday } from "@keeper.sh/date-utils";
-import { and, asc, eq, gte, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, or } from "drizzle-orm";
 import type { BunSQLDatabase } from "drizzle-orm/bun-sql";
+import {
+  extendByRecurrenceRule,
+  type IcsRecurrenceRule,
+} from "ts-ics";
 import type { SyncableEvent } from "../types";
 
 const EMPTY_SOURCES_COUNT = 0;
+
+const rehydrateRecurrenceRule = (parsed: object): IcsRecurrenceRule => {
+  const rule = parsed as IcsRecurrenceRule;
+  if (rule.until?.date && typeof rule.until.date === "string") {
+    rule.until = { ...rule.until, date: new Date(rule.until.date) };
+  }
+  return rule;
+};
+
+const rehydrateExceptionDates = (parsed: object): Date[] => {
+  const entries = parsed as Array<{ date: string | Date }>;
+  return entries.map((entry) =>
+    entry.date instanceof Date ? entry.date : new Date(entry.date),
+  );
+};
+
+const hasActiveFutureOccurrence = (
+  event: { startTime: Date; recurrenceRule?: object; exceptionDates?: object },
+  startOfToday: Date,
+): boolean => {
+  if (!event.recurrenceRule) return false;
+
+  const rule = rehydrateRecurrenceRule(event.recurrenceRule);
+  const exceptions = event.exceptionDates
+    ? rehydrateExceptionDates(event.exceptionDates)
+    : undefined;
+
+  const dates = extendByRecurrenceRule(rule, {
+    start: event.startTime,
+    exceptions,
+  });
+
+  return dates.some((d) => d >= startOfToday);
+};
 
 const getMappedSourceIds = async (
   database: BunSQLDatabase,
@@ -78,7 +116,10 @@ const fetchEventsForSources = async (
     .where(
       and(
         inArray(eventStatesTable.sourceId, sourceIds),
-        gte(eventStatesTable.startTime, startOfToday),
+        or(
+          gte(eventStatesTable.startTime, startOfToday),
+          isNotNull(eventStatesTable.recurrenceRule),
+        ),
       ),
     )
     .orderBy(asc(eventStatesTable.startTime));
@@ -88,6 +129,25 @@ const fetchEventsForSources = async (
   for (const result of results) {
     if (result.sourceEventUid === null) {
       continue;
+    }
+
+    // Filter out expired recurring events that were included by the widened SQL query
+    if (result.startTime < startOfToday && result.recurrenceRule !== null) {
+      const parsedRule = safeJsonParse<object>(result.recurrenceRule);
+      const parsedExceptions = safeJsonParse<object>(result.exceptionDates);
+      if (
+        parsedRule &&
+        !hasActiveFutureOccurrence(
+          {
+            startTime: result.startTime,
+            recurrenceRule: parsedRule,
+            exceptionDates: parsedExceptions,
+          },
+          startOfToday,
+        )
+      ) {
+        continue;
+      }
     }
 
     syncableEvents.push({
@@ -139,4 +199,9 @@ const getEventsForDestination = async (
   return fetchEventsForSources(database, sourceIds);
 };
 
-export { getEventsForDestination };
+export {
+  getEventsForDestination,
+  hasActiveFutureOccurrence,
+  rehydrateExceptionDates,
+  rehydrateRecurrenceRule,
+};

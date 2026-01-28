@@ -273,11 +273,24 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
     return item ?? null;
   }
 
+  private static formatRecurrenceDate(value: unknown): string {
+    const d = value instanceof Date ? value : new Date(value as string);
+    return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  }
+
   private static toGoogleEvent(event: SyncableEvent, uid: string): GoogleEvent {
+    const hasRecurrence = Boolean(event.recurrenceRule);
+
     const googleEvent: GoogleEvent = {
       iCalUID: uid,
-      start: { dateTime: event.startTime.toISOString() },
-      end: { dateTime: event.endTime.toISOString() },
+      start: {
+        dateTime: event.startTime.toISOString(),
+        ...(hasRecurrence && { timeZone: "UTC" }),
+      },
+      end: {
+        dateTime: event.endTime.toISOString(),
+        ...(hasRecurrence && { timeZone: "UTC" }),
+      },
       summary: event.summary,
       description: event.description,
       location: event.location,
@@ -317,14 +330,46 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
     }
 
     // Map recurrence (if present - Google uses RFC5545 RRULE strings)
+    // The stored recurrenceRule follows the IcsRecurrenceRule shape from ts-ics
     if (event.recurrenceRule) {
-      const rule = event.recurrenceRule as { freq?: string; until?: string; count?: number; interval?: number; byday?: string[] };
+      const rule = event.recurrenceRule as {
+        frequency?: string;
+        until?: { date?: unknown };
+        count?: number;
+        interval?: number;
+        byDay?: Array<{ day: string; occurrence?: number }>;
+        byMonth?: number[];
+        byMonthday?: number[];
+        bySetPos?: number[];
+        byHour?: number[];
+        byMinute?: number[];
+        bySecond?: number[];
+        byYearday?: number[];
+        byWeekNo?: number[];
+        workweekStart?: string;
+      };
       const parts: string[] = [];
-      if (rule.freq) parts.push(`FREQ=${rule.freq}`);
+      if (rule.frequency) parts.push(`FREQ=${rule.frequency}`);
       if (rule.interval) parts.push(`INTERVAL=${rule.interval}`);
       if (rule.count) parts.push(`COUNT=${rule.count}`);
-      if (rule.until) parts.push(`UNTIL=${rule.until}`);
-      if (rule.byday) parts.push(`BYDAY=${rule.byday.join(",")}`);
+      if (rule.until?.date) {
+        parts.push(`UNTIL=${GoogleCalendarProviderInstance.formatRecurrenceDate(rule.until.date)}`);
+      }
+      if (rule.byDay?.length) {
+        const days = rule.byDay.map((d) =>
+          d.occurrence ? `${d.occurrence}${d.day}` : d.day,
+        );
+        parts.push(`BYDAY=${days.join(",")}`);
+      }
+      if (rule.byMonth?.length) parts.push(`BYMONTH=${rule.byMonth.join(",")}`);
+      if (rule.byMonthday?.length) parts.push(`BYMONTHDAY=${rule.byMonthday.join(",")}`);
+      if (rule.bySetPos?.length) parts.push(`BYSETPOS=${rule.bySetPos.join(",")}`);
+      if (rule.byYearday?.length) parts.push(`BYYEARDAY=${rule.byYearday.join(",")}`);
+      if (rule.byWeekNo?.length) parts.push(`BYWEEKNO=${rule.byWeekNo.join(",")}`);
+      if (rule.byHour?.length) parts.push(`BYHOUR=${rule.byHour.join(",")}`);
+      if (rule.byMinute?.length) parts.push(`BYMINUTE=${rule.byMinute.join(",")}`);
+      if (rule.bySecond?.length) parts.push(`BYSECOND=${rule.bySecond.join(",")}`);
+      if (rule.workweekStart) parts.push(`WKST=${rule.workweekStart}`);
       if (parts.length > 0) {
         googleEvent.recurrence = [`RRULE:${parts.join(";")}`];
       }
