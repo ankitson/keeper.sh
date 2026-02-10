@@ -70,8 +70,8 @@ const eventToICalString = (event: SyncableEvent, uid: string): string => {
   const icsEvent: IcsEvent = {
     uid,
     stamp: { date: new Date() },
-    start: { date: event.startTime, tzId: "UTC" },
-    end: { date: event.endTime, tzId: "UTC" },
+    start: { date: event.startTime, tzId: event.startTimeZone ?? "UTC" },
+    end: { date: event.endTime, tzId: event.startTimeZone ?? "UTC" },
     summary: event.summary,
     description: event.description,
     location: event.location,

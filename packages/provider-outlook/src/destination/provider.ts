@@ -251,8 +251,8 @@ class OutlookCalendarProviderInstance extends OAuthCalendarProvider<OutlookCalen
       ...(body && { body }),
       ...(location && { location }),
       categories: [KEEPER_CATEGORY],
-      end: { dateTime: event.endTime.toISOString(), timeZone: "UTC" },
-      start: { dateTime: event.startTime.toISOString(), timeZone: "UTC" },
+      end: { dateTime: event.endTime.toISOString(), timeZone: event.startTimeZone ?? "UTC" },
+      start: { dateTime: event.startTime.toISOString(), timeZone: event.startTimeZone ?? "UTC" },
       subject: event.summary,
     };
 

@@ -1,7 +1,9 @@
 import type { EventDiff, EventTimeSlot, StoredEventTimeSlot } from "../types";
 
+const normalizeTimeZone = (timeZone: string | null | undefined): string => timeZone ?? "";
+
 const eventIdentityKey = (event: EventTimeSlot): string =>
-  `${event.uid}:${event.startTime.getTime()}:${event.endTime.getTime()}`;
+  `${event.uid}:${event.startTime.getTime()}:${event.endTime.getTime()}:${normalizeTimeZone(event.startTimeZone)}`;
 
 const diffEvents = (remote: EventTimeSlot[], stored: StoredEventTimeSlot[]): EventDiff => {
   const remoteByKey = new Map<string, EventTimeSlot>();

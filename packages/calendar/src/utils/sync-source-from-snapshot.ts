@@ -34,7 +34,7 @@ const getLatestSnapshot = async (
   return parseIcsCalendar({ icsString: snapshot.ical });
 };
 
-const getStoredEvents = (
+const getStoredEvents = async (
   database: BunSQLDatabase,
   sourceId: string,
 ): Promise<
@@ -42,18 +42,30 @@ const getStoredEvents = (
     endTime: Date;
     id: string;
     startTime: Date;
+    startTimeZone?: string;
     uid: string | null;
   }[]
-> =>
-  database
+> => {
+  const rows = await database
     .select({
       endTime: eventStatesTable.endTime,
       id: eventStatesTable.id,
       startTime: eventStatesTable.startTime,
+      startTimeZone: eventStatesTable.startTimeZone,
       uid: eventStatesTable.sourceEventUid,
     })
     .from(eventStatesTable)
     .where(eq(eventStatesTable.sourceId, sourceId));
+
+  return rows.map((row) => {
+    if (row.startTimeZone !== null) {
+      return row;
+    }
+
+    const { startTimeZone: _, ...withoutTimeZone } = row;
+    return withoutTimeZone;
+  });
+};
 
 const getUserMappedDestinationUids = async (
   database: BunSQLDatabase,
@@ -91,6 +103,7 @@ const addEvents = async (
     sourceEventUid: event.uid,
     sourceId,
     startTime: event.startTime,
+    startTimeZone: event.startTimeZone,
     // Tier 1 - Core Content
     summary: event.summary,
     description: event.description,

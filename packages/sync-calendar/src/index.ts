@@ -32,12 +32,24 @@ const toStoredEvent = (row: {
   sourceEventUid: string;
   startTime: Date;
   endTime: Date;
-}): { endTime: Date; id: string; startTime: Date; uid: string } => ({
-  endTime: row.endTime,
-  id: row.id,
-  startTime: row.startTime,
-  uid: row.sourceEventUid,
-});
+  startTimeZone: string | null;
+}): { endTime: Date; id: string; startTime: Date; startTimeZone?: string; uid: string } => {
+  const event = {
+    endTime: row.endTime,
+    id: row.id,
+    startTime: row.startTime,
+    uid: row.sourceEventUid,
+  };
+
+  if (row.startTimeZone !== null) {
+    return {
+      ...event,
+      startTimeZone: row.startTimeZone,
+    };
+  }
+
+  return event;
+};
 
 const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarService => {
   const getLatestSnapshot = async (
@@ -58,13 +70,14 @@ const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarServic
 
   const getStoredEvents = async (
     sourceId: string,
-  ): Promise<{ endTime: Date; id: string; startTime: Date; uid: string }[]> => {
+  ): Promise<{ endTime: Date; id: string; startTime: Date; startTimeZone?: string; uid: string }[]> => {
     const results = await database
       .select({
         endTime: eventStatesTable.endTime,
         id: eventStatesTable.id,
         sourceEventUid: eventStatesTable.sourceEventUid,
         startTime: eventStatesTable.startTime,
+        startTimeZone: eventStatesTable.startTimeZone,
       })
       .from(eventStatesTable)
       .where(eq(eventStatesTable.sourceId, sourceId));
@@ -93,6 +106,7 @@ const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarServic
       sourceEventUid: event.uid,
       sourceId,
       startTime: event.startTime,
+      startTimeZone: event.startTimeZone,
       // Tier 1 - Core Content
       summary: event.summary,
       description: event.description,

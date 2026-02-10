@@ -39,6 +39,7 @@ interface SyncableEvent {
   sourceEventUid: string;
   startTime: Date;
   endTime: Date;
+  startTimeZone?: string;
   summary: string;
   description?: string;
   sourceId: string;

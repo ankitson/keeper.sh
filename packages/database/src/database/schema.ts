@@ -132,6 +132,7 @@ const eventStatesTable = pgTable(
       .notNull()
       .references(() => calendarSourcesTable.id, { onDelete: "cascade" }),
     startTime: timestamp().notNull(),
+    startTimeZone: text(),
     // Tier 1 - Core Content
     summary: text(),
     description: text(),

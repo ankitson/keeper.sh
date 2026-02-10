@@ -267,6 +267,13 @@
       "when": 1767900000000,
       "tag": "0037_event_details",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1768089600000,
+      "tag": "0038_start_timezone",
+      "breakpoints": true
     }
   ]
 }

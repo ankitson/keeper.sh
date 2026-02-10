@@ -281,15 +281,17 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
   private static toGoogleEvent(event: SyncableEvent, uid: string): GoogleEvent {
     const hasRecurrence = Boolean(event.recurrenceRule);
 
+    const recurrenceTimeZone = event.startTimeZone ?? "UTC";
+
     const googleEvent: GoogleEvent = {
       iCalUID: uid,
       start: {
         dateTime: event.startTime.toISOString(),
-        ...(hasRecurrence && { timeZone: "UTC" }),
+        ...(hasRecurrence && { timeZone: recurrenceTimeZone }),
       },
       end: {
         dateTime: event.endTime.toISOString(),
-        ...(hasRecurrence && { timeZone: "UTC" }),
+        ...(hasRecurrence && { timeZone: recurrenceTimeZone }),
       },
       summary: event.summary,
       description: event.description,

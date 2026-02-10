@@ -2,6 +2,7 @@ interface EventTimeSlot {
   uid: string;
   startTime: Date;
   endTime: Date;
+  startTimeZone?: string;
   // Tier 1 - Core Content
   summary?: string;
   description?: string;

@@ -159,6 +159,62 @@ END:VCALENDAR`;
     expect(included).toBe(true);
   });
 
+  it("preserves startTimeZone from DTSTART TZID for recurring events", () => {
+    const ics = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Test//EN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:STANDARD
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+TZNAME:PST
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+TZNAME:PDT
+END:DAYLIGHT
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:timezone-test@example.com
+DTSTART;TZID=America/Los_Angeles:20260112T180000
+DTEND;TZID=America/Los_Angeles:20260112T200000
+SUMMARY:HTGAA Victoria Node Meeting
+RRULE:FREQ=WEEKLY;BYDAY=MO,WE
+END:VEVENT
+END:VCALENDAR`;
+
+    const calendar = parseIcsCalendar({ icsString: ics });
+    const events = parseIcsEvents(calendar);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]!.summary).toBe("HTGAA Victoria Node Meeting");
+    expect(events[0]!.startTimeZone).toBe("America/Los_Angeles");
+    expect(events[0]!.recurrenceRule).toBeDefined();
+  });
+
+  it("startTimeZone is undefined for UTC events", () => {
+    const ics = makeRecurringEventIcs({
+      uid: "utc-event@example.com",
+      summary: "UTC Event",
+      dtstart: "20260113T100000Z",
+      dtend: "20260113T110000Z",
+      rrule: "FREQ=WEEKLY;COUNT=26",
+    });
+
+    const calendar = parseIcsCalendar({ icsString: ics });
+    const events = parseIcsEvents(calendar);
+
+    expect(events).toHaveLength(1);
+    // UTC events (Z suffix) should not have a specific tzId
+    expect(events[0]!.startTimeZone).toBeUndefined();
+  });
+
   it("fully expired recurring event is correctly excluded", () => {
     const ics = makeRecurringEventIcs({
       uid: "expired-event@example.com",

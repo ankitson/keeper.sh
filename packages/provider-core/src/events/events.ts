@@ -89,6 +89,7 @@ const fetchEventsForSources = async (
       sourceType: calendarSourcesTable.sourceType,
       sourceUrl: calendarSourcesTable.url,
       startTime: eventStatesTable.startTime,
+      startTimeZone: eventStatesTable.startTimeZone,
       // Tier 1 - Core Content
       summary: eventStatesTable.summary,
       description: eventStatesTable.description,
@@ -158,6 +159,7 @@ const fetchEventsForSources = async (
       sourceName: result.sourceName,
       sourceUrl: result.sourceUrl ?? result.sourceType,
       startTime: result.startTime,
+      startTimeZone: result.startTimeZone ?? undefined,
       // Fallback: summary from event, then source name, then "Busy"
       summary: result.summary ?? result.sourceName ?? "Busy",
       // Tier 1 - Core Content

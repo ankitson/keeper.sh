@@ -45,7 +45,14 @@ const isKeeperEvent = (uid: string | undefined): boolean =>
 
 const formatGeo = (geo: IcsEvent["geo"]): string | undefined => {
   if (!geo) return undefined;
-  return `${geo.lat},${geo.lon}`;
+  if (typeof geo === "string") return geo;
+
+  // TS-ICS typings expose geo as string, but some providers may still emit an object shape.
+  const value = geo as unknown as { lat?: number; lon?: number };
+  if (typeof value.lat === "number" && typeof value.lon === "number") {
+    return `${value.lat},${value.lon}`;
+  }
+  return undefined;
 };
 
 const parseIcsEvents = (calendar: IcsCalendar): EventTimeSlot[] => {
@@ -64,6 +71,7 @@ const parseIcsEvents = (calendar: IcsCalendar): EventTimeSlot[] => {
       uid: event.uid,
       startTime,
       endTime: getEventEndTime(event, startTime),
+      startTimeZone: event.start.local?.timezone,
       // Tier 1 - Core Content
       summary: event.summary,
       description: event.description,
