@@ -2,8 +2,14 @@ import type { EventDiff, EventTimeSlot, StoredEventTimeSlot } from "../types";
 
 const normalizeTimeZone = (timeZone: string | null | undefined): string => timeZone ?? "";
 
+const normalizeRecurrenceRule = (rule: object | undefined): string =>
+  rule ? JSON.stringify(rule) : "";
+
+const normalizeExceptionDates = (dates: object | undefined): string =>
+  dates ? JSON.stringify(dates) : "";
+
 const eventIdentityKey = (event: EventTimeSlot): string =>
-  `${event.uid}:${event.startTime.getTime()}:${event.endTime.getTime()}:${normalizeTimeZone(event.startTimeZone)}`;
+  `${event.uid}:${event.startTime.getTime()}:${event.endTime.getTime()}:${normalizeTimeZone(event.startTimeZone)}:${normalizeRecurrenceRule(event.recurrenceRule)}:${normalizeExceptionDates(event.exceptionDates)}`;
 
 const diffEvents = (remote: EventTimeSlot[], stored: StoredEventTimeSlot[]): EventDiff => {
   const remoteByKey = new Map<string, EventTimeSlot>();

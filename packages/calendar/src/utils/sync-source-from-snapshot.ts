@@ -34,13 +34,24 @@ const getLatestSnapshot = async (
   return parseIcsCalendar({ icsString: snapshot.ical });
 };
 
+const safeJsonParse = (value: string | null): object | undefined => {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as object;
+  } catch {
+    return undefined;
+  }
+};
+
 const getStoredEvents = async (
   database: BunSQLDatabase,
   sourceId: string,
 ): Promise<
   {
     endTime: Date;
+    exceptionDates?: object;
     id: string;
+    recurrenceRule?: object;
     startTime: Date;
     startTimeZone?: string;
     uid: string | null;
@@ -49,7 +60,9 @@ const getStoredEvents = async (
   const rows = await database
     .select({
       endTime: eventStatesTable.endTime,
+      exceptionDates: eventStatesTable.exceptionDates,
       id: eventStatesTable.id,
+      recurrenceRule: eventStatesTable.recurrenceRule,
       startTime: eventStatesTable.startTime,
       startTimeZone: eventStatesTable.startTimeZone,
       uid: eventStatesTable.sourceEventUid,
@@ -58,12 +71,18 @@ const getStoredEvents = async (
     .where(eq(eventStatesTable.sourceId, sourceId));
 
   return rows.map((row) => {
-    if (row.startTimeZone !== null) {
-      return row;
-    }
-
-    const { startTimeZone: _, ...withoutTimeZone } = row;
-    return withoutTimeZone;
+    const base = {
+      endTime: row.endTime,
+      id: row.id,
+      startTime: row.startTime,
+      uid: row.uid,
+    };
+    return {
+      ...base,
+      ...(row.startTimeZone !== null && { startTimeZone: row.startTimeZone }),
+      ...(row.recurrenceRule !== null && { recurrenceRule: safeJsonParse(row.recurrenceRule) }),
+      ...(row.exceptionDates !== null && { exceptionDates: safeJsonParse(row.exceptionDates) }),
+    };
   });
 };
 

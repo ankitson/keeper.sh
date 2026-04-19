@@ -27,13 +27,24 @@ interface SyncCalendarService {
   fetchAndSyncSource: (source: Source) => Promise<void>;
 }
 
+const safeJsonParse = (value: string | null): object | undefined => {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as object;
+  } catch {
+    return undefined;
+  }
+};
+
 const toStoredEvent = (row: {
   id: string;
   sourceEventUid: string;
   startTime: Date;
   endTime: Date;
   startTimeZone: string | null;
-}): { endTime: Date; id: string; startTime: Date; startTimeZone?: string; uid: string } => {
+  recurrenceRule: string | null;
+  exceptionDates: string | null;
+}): { endTime: Date; exceptionDates?: object; id: string; recurrenceRule?: object; startTime: Date; startTimeZone?: string; uid: string } => {
   const event = {
     endTime: row.endTime,
     id: row.id,
@@ -41,14 +52,12 @@ const toStoredEvent = (row: {
     uid: row.sourceEventUid,
   };
 
-  if (row.startTimeZone !== null) {
-    return {
-      ...event,
-      startTimeZone: row.startTimeZone,
-    };
-  }
-
-  return event;
+  return {
+    ...event,
+    ...(row.startTimeZone !== null && { startTimeZone: row.startTimeZone }),
+    ...(row.recurrenceRule !== null && { recurrenceRule: safeJsonParse(row.recurrenceRule) }),
+    ...(row.exceptionDates !== null && { exceptionDates: safeJsonParse(row.exceptionDates) }),
+  };
 };
 
 const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarService => {
@@ -70,11 +79,13 @@ const createSyncCalendarService = (database: BunSQLDatabase): SyncCalendarServic
 
   const getStoredEvents = async (
     sourceId: string,
-  ): Promise<{ endTime: Date; id: string; startTime: Date; startTimeZone?: string; uid: string }[]> => {
+  ): Promise<{ endTime: Date; exceptionDates?: object; id: string; recurrenceRule?: object; startTime: Date; startTimeZone?: string; uid: string }[]> => {
     const results = await database
       .select({
         endTime: eventStatesTable.endTime,
+        exceptionDates: eventStatesTable.exceptionDates,
         id: eventStatesTable.id,
+        recurrenceRule: eventStatesTable.recurrenceRule,
         sourceEventUid: eventStatesTable.sourceEventUid,
         startTime: eventStatesTable.startTime,
         startTimeZone: eventStatesTable.startTimeZone,

@@ -126,6 +126,10 @@ class GoogleCalendarProviderInstance extends OAuthCalendarProvider<GoogleCalenda
     url.searchParams.set("maxResults", String(GOOGLE_CALENDAR_MAX_RESULTS));
     url.searchParams.set("timeMin", today.toISOString());
     url.searchParams.set("timeMax", until.toISOString());
+    // Required for recurring events with past start dates: without this Google filters by
+    // the base event's start time, so events created before today are never returned,
+    // causing their mappings to be marked stale every sync cycle.
+    url.searchParams.set("singleEvents", "true");
     if (pageToken) {
       url.searchParams.set("pageToken", pageToken);
     }
