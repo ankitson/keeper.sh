@@ -12,6 +12,7 @@ import {
 import { createDigestAwareFetch } from "./digest-fetch";
 import { runInRequestScope } from "./response-status-scope";
 import { findCalendarByStoredUrl } from "./calendar-identity";
+import { readCollectionTimeZone } from "./collection-timezone";
 import type { CalDAVAuthMethod } from "./digest-fetch";
 import type { SafeFetchOptions, WithheldCredentials } from "../../../utils/safe-fetch";
 import type { CalDAVClientConfig, CalendarInfo } from "../types";
@@ -263,11 +264,15 @@ class CalDAVClient {
 
     const discovered = calendars
       .filter(({ components }) => components?.includes("VEVENT"))
-      .map(({ url, displayName, ctag }) => ({
-        ctag,
-        displayName: getDisplayName(displayName),
-        url: bindUrlToAccount(url, this.config.serverUrl),
-      }));
+      .map(({ url, displayName, ctag, timezone }) => {
+        const timeZone = readCollectionTimeZone(timezone);
+        return {
+          ctag,
+          displayName: getDisplayName(displayName),
+          url: bindUrlToAccount(url, this.config.serverUrl),
+          ...timeZone && { timeZone },
+        };
+      });
 
     await this.config.calendarDiscoveryCache?.write(discovered);
     return discovered;
@@ -280,9 +285,22 @@ class CalDAVClient {
   }
 
   async resolveCalendarUrl(storedUrl: string): Promise<string> {
-    const calendars = await this.discoverCalendars();
+    const { url } = await this.resolveCalendar(storedUrl);
+    return url;
+  }
 
-    return findCalendarByStoredUrl(calendars, storedUrl)?.url ?? storedUrl;
+  /*
+   * One discovery walk for both: resolving the URL and the collection's zone
+   * separately would walk twice when no discovery cache is configured.
+   */
+  async resolveCalendar(storedUrl: string): Promise<{ url: string; timeZone?: string }> {
+    const calendars = await this.discoverCalendars();
+    const calendar = findCalendarByStoredUrl(calendars, storedUrl);
+
+    return {
+      url: calendar?.url ?? storedUrl,
+      ...calendar?.timeZone && { timeZone: calendar.timeZone },
+    };
   }
 
   async createCalendarObject(params: {

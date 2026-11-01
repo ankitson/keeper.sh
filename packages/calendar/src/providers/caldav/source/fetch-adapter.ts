@@ -34,7 +34,9 @@ const createCalDAVSourceFetcher = (config: CalDAVSourceFetcherConfig): CalDAVSou
 
   const fetchEvents = async (): Promise<FetchEventsResult> => {
     const { futureRange, historicRange, window: syncWindow } = config.plan;
-    const calendarUrl = await client.resolveCalendarUrl(config.calendarUrl);
+    const { url: calendarUrl, timeZone: calendarTimeZone } = await client.resolveCalendar(
+      config.calendarUrl,
+    );
 
     const objects = await client.fetchCalendarObjects({
       calendarUrl,
@@ -51,7 +53,10 @@ const createCalDAVSourceFetcher = (config: CalDAVSourceFetcherConfig): CalDAVSou
     const { events, outsideSyncWindowCount, resources, selfAuthoredEventCount } = measureSyncSegment(
       "work.transform_ms",
       () => {
-        const parsed = parseICalCalendarsToRemoteEvents(objects.map(({ data }) => data ?? ""));
+        const parsed = parseICalCalendarsToRemoteEvents(
+          objects.map(({ data }) => data ?? ""),
+          { calendarTimeZone },
+        );
         /*
          * Ingestion diffs stored event_states against this fetch, so a missing
          * event means "absent" here: a partial read would delete every event in

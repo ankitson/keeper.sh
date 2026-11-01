@@ -85,6 +85,8 @@ interface CalendarInfo {
   url: string;
   displayName: string;
   ctag?: string;
+  /** IANA zone the collection publishes for floating times (RFC 4791 §5.2.2). */
+  timeZone?: string;
 }
 
 export type {

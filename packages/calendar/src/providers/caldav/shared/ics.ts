@@ -91,6 +91,11 @@ interface ParsedCalendarEvent {
 
 interface ParseICalCalendarsOptions {
   rejectUnsupportedRecurrenceDates?: boolean;
+  /**
+   * The collection's published zone (CALDAV:calendar-timezone): how floating
+   * times are read in a resource that carries no X-WR-TIMEZONE of its own.
+   */
+  calendarTimeZone?: string;
 }
 
 interface ParsedCalendarResources {
@@ -158,9 +163,13 @@ const parseCalendarResource = (
     assertNoUnsupportedRecurrenceDates(icsString);
   }
   const initialCalendar = parseIcsCalendar({ icsString });
+  /*
+   * CalDAV servers rarely stamp X-WR-TIMEZONE on individual resources; the
+   * collection's own zone is what RFC 4791 §5.2.2 says floating times mean.
+   */
   const normalizedIcs = applyCalendarTimeZoneToFloatingEventDates(
     icsString,
-    normalizeTimezone(initialCalendar.nonStandard?.wrTimezone),
+    normalizeTimezone(initialCalendar.nonStandard?.wrTimezone) ?? options.calendarTimeZone,
   );
   if (normalizedIcs === icsString) {
     return initialCalendar;

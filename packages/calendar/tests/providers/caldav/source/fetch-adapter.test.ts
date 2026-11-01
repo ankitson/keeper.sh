@@ -190,3 +190,65 @@ describe("createCalDAVSourceFetcher against an unreadable resource", () => {
     }
   });
 });
+
+const floatingIcs = (uid: string): string => [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//Apple Inc.//macOS 26.6.2//EN",
+  "BEGIN:VEVENT",
+  "DTEND:20260620T190000",
+  `UID:${uid}`,
+  "DTSTAMP:20260601T000000Z",
+  "SUMMARY:Floating event",
+  "DTSTART:20260620T170000",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+const FLOATING_UID = "floating@example.com";
+
+const dataWithFloatingObject = (index: number): string => {
+  if (index === 1) {
+    return floatingIcs(FLOATING_UID);
+  }
+  return icsFor(`native-${index}@example.com`);
+};
+
+const VANCOUVER_CALENDAR_TIMEZONE = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "BEGIN:VTIMEZONE",
+  "TZID:America/Vancouver",
+  "END:VTIMEZONE",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("createCalDAVSourceFetcher against a floating-time resource", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    davMocks.fetchCalendars.mockResolvedValue([]);
+  });
+
+  it("reads it in the zone the collection publishes", async () => {
+    davMocks.fetchCalendars.mockResolvedValue([{
+      components: ["VEVENT"],
+      displayName: "Calendar",
+      timezone: VANCOUVER_CALENDAR_TIMEZONE,
+      url: `${SERVER_URL}${CALENDAR_PATH}`,
+    }]);
+    answerQueryWith(objectPaths(3));
+    answerMultigetWith((objectUrls) =>
+      objectUrls.map((path, index) => ({
+        data: dataWithFloatingObject(index),
+        url: `${SERVER_URL}${path}`,
+      })));
+
+    const result = await createFetcher().fetchEvents();
+
+    expect(result.unsupportedEventUids).toBeUndefined();
+    expect(result.skippedResourceCount).toBe(0);
+    const floating = result.events.find(({ uid }) => uid === FLOATING_UID);
+    expect(floating?.startTime.toISOString()).toBe("2026-06-21T00:00:00.000Z");
+    expect(result.events).toHaveLength(3);
+  });
+});
