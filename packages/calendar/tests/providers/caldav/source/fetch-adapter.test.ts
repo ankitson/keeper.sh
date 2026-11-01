@@ -251,4 +251,21 @@ describe("createCalDAVSourceFetcher against a floating-time resource", () => {
     expect(floating?.startTime.toISOString()).toBe("2026-06-21T00:00:00.000Z");
     expect(result.events).toHaveLength(3);
   });
+
+  it("withholds it by UID instead of failing the collection when no zone exists anywhere", async () => {
+    answerQueryWith(objectPaths(3));
+    answerMultigetWith((objectUrls) =>
+      objectUrls.map((path, index) => ({
+        data: dataWithFloatingObject(index),
+        url: `${SERVER_URL}${path}`,
+      })));
+
+    const result = await createFetcher().fetchEvents();
+
+    expect(result.skippedResourceCount).toBe(0);
+    expect(result.unsupportedEventUids).toEqual([FLOATING_UID]);
+    expect(result.events.map(({ uid }) => uid)).toEqual(
+      expect.arrayContaining(["native-0@example.com", "native-2@example.com"]),
+    );
+  });
 });

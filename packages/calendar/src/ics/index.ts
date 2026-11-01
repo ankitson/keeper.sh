@@ -5,10 +5,7 @@ export type { ParsedIcsEventDiagnostics } from "./utils/parse-ics-events";
 export { parseIcsCalendar } from "./utils/parse-ics-calendar";
 export { diffEvents } from "./utils/diff-events";
 export { persistCalendarSnapshot, prepareCalendarSnapshot } from "./utils/create-snapshot";
-export {
-  applyCalendarTimeZoneToFloatingEventDates,
-  createIcsSourceFetcher,
-} from "./utils/fetch-adapter";
+export { createIcsSourceFetcher, normalizeFloatingEventDates } from "./utils/fetch-adapter";
 export type {
   FetchIcsSourceEventsOptions,
   IcsSourceEventContext,

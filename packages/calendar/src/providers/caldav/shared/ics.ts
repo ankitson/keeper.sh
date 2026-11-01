@@ -1,8 +1,8 @@
 import { generateIcsCalendar } from "ts-ics";
 import {
-  applyCalendarTimeZoneToFloatingEventDates,
   buildVtimezone,
   buildZonedIcsDate,
+  normalizeFloatingEventDates,
   normalizeTimezone,
   parseIcsCalendar,
   parseIcsEventsWithDiagnostics,
@@ -155,10 +155,15 @@ const assertAllResourcesRead = (resources: ParsedCalendarResources): void => {
   }
 };
 
+interface ParsedCalendarResource {
+  calendar: IcsCalendar;
+  unsupportedEvents: UnsupportedRecurrenceEvent[];
+}
+
 const parseCalendarResource = (
   icsString: string,
   options: ParseICalCalendarsOptions,
-): IcsCalendar => {
+): ParsedCalendarResource => {
   if (options.rejectUnsupportedRecurrenceDates !== false) {
     assertNoUnsupportedRecurrenceDates(icsString);
   }
@@ -167,14 +172,30 @@ const parseCalendarResource = (
    * CalDAV servers rarely stamp X-WR-TIMEZONE on individual resources; the
    * collection's own zone is what RFC 4791 §5.2.2 says floating times mean.
    */
-  const normalizedIcs = applyCalendarTimeZoneToFloatingEventDates(
+  const normalized = normalizeFloatingEventDates(
     icsString,
     normalizeTimezone(initialCalendar.nonStandard?.wrTimezone) ?? options.calendarTimeZone,
   );
-  if (normalizedIcs === icsString) {
-    return initialCalendar;
+  /*
+   * A floating event with no zone anywhere is withheld by UID, as the ICS feed
+   * path does, instead of making every other event in the collection
+   * unreadable. A failure that cannot be attributed to a UID still fails the
+   * resource: there is nothing to withhold it by.
+   */
+  const unattributed = normalized.failures.find(({ uid }) => !uid);
+  if (unattributed) {
+    throw unattributed.error;
   }
-  return parseIcsCalendar({ icsString: normalizedIcs });
+  const unsupportedEvents = normalized.failures.flatMap(({ error, uid }) => {
+    if (!uid) {
+      return [];
+    }
+    return [{ reason: error.message, uid }];
+  });
+  if (normalized.ical === icsString) {
+    return { calendar: initialCalendar, unsupportedEvents };
+  }
+  return { calendar: parseIcsCalendar({ icsString: normalized.ical }), unsupportedEvents };
 };
 
 const toResourceFailure = (error: unknown): Error => {
@@ -189,10 +210,13 @@ const parseICalCalendarsToRemoteEvents = (
   options: ParseICalCalendarsOptions = {},
 ): ParsedCalendarResources => {
   const calendars: IcsCalendar[] = [];
+  const floatingEvents: UnsupportedRecurrenceEvent[] = [];
   const failures: Error[] = [];
   for (const icsString of icsStrings) {
     try {
-      calendars.push(parseCalendarResource(icsString, options));
+      const resource = parseCalendarResource(icsString, options);
+      calendars.push(resource.calendar);
+      floatingEvents.push(...resource.unsupportedEvents);
     } catch (error) {
       failures.push(toResourceFailure(error));
     }
@@ -226,6 +250,7 @@ const parseICalCalendarsToRemoteEvents = (
   };
   const parsed = parseIcsEventsWithDiagnostics(calendar, { includeKeeperEvents: true });
   const unsupportedEvents = [
+    ...floatingEvents,
     ...parsed.unsupportedEvents,
     ...collectUnsupportedRecurrenceTimeZones(parsed.events),
   ];

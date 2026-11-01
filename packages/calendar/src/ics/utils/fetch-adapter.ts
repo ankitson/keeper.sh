@@ -295,22 +295,6 @@ const normalizeFloatingEventDates = (
   return { failures, ical: lines.join("\r\n") };
 };
 
-/*
- * For CalDAV, which reads one resource at a time and already quarantines and
- * counts the resources it cannot read.
- */
-const applyCalendarTimeZoneToFloatingEventDates = (
-  ical: string,
-  calendarTimeZone: string | undefined,
-): string => {
-  const normalized = normalizeFloatingEventDates(ical, calendarTimeZone);
-  const [failure] = normalized.failures;
-  if (failure) {
-    throw failure.error;
-  }
-  return normalized.ical;
-};
-
 const createIcsSourceFetcher = (config: IcsSourceFetcherConfig): IcsSourceFetcher => {
   /**
    * Lets pullRemoteCalendar errors propagate. The previous behavior swallowed
@@ -429,7 +413,7 @@ const createIcsSourceFetcher = (config: IcsSourceFetcherConfig): IcsSourceFetche
   return { fetchEvents };
 };
 
-export { applyCalendarTimeZoneToFloatingEventDates, createIcsSourceFetcher };
+export { createIcsSourceFetcher, normalizeFloatingEventDates };
 export type {
   FetchIcsSourceEventsOptions,
   IcsSourceEventContext,
